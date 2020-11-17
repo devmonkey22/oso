@@ -4,7 +4,7 @@ from typing import Any, Callable
 
 from sqlalchemy.event import listen, remove
 from sqlalchemy.orm.query import Query
-from sqlalchemy.orm import aliased
+from sqlalchemy.orm import aliased, sessionmaker
 
 from oso import Oso
 
@@ -67,3 +67,38 @@ def make_authorized_query_cls(get_oso, get_user, get_action) -> Query:
     enable_hooks(get_oso, get_user, get_action, target=AuthorizedQuery)
 
     return AuthorizedQuery
+
+
+def authorized_sessionmaker(
+    get_oso,
+    get_user,
+    get_action,
+    *args,
+    **kwargs
+):
+    """Session factory for sessions with oso authorization applied.
+
+    :param get_oso: Callable that return oso instance to use for authorization.
+    :param get_user: Callable that returns user for an authorization request.
+    :param get_action: Callable that returns user for the action.
+
+    The ``query_cls`` parameter cannot be used with ``authorize_sessionmaker``.
+
+    Baked queries will be disabled for this session, because they are incompatible
+    with authorization.
+
+    All other positional and keyword arguments are passed through to
+    :py:func:`sqlalchemy.orm.session.sessionmaker` unchanged.
+    """
+    # TODO (dhatch): Should be possible with additional wrapping.
+    assert 'query_cls' not in kwargs, "Cannot use custom query class with authorized_sessionmaker."
+    assert 'enable_baked_queries' not in kwargs, "Cannot set enabled_baked_queries."
+    return sessionmaker(
+        query_cls=make_authorized_query_cls(
+            get_oso,
+            get_user,
+            get_action
+        ),
+        enable_baked_queries=False,
+        *args,
+        **kwargs)

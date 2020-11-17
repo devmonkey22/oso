@@ -63,7 +63,7 @@ def engine():
 
 @pytest.fixture
 def session(engine):
-    return Session(bind=engine)
+    return Session(bind=engine, enable_baked_queries=False)
 
 @pytest.fixture
 def oso():
