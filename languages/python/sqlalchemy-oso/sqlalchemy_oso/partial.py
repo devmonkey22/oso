@@ -14,6 +14,17 @@ from polar.exceptions import UnsupportedError
 # TODO (dhatch) Better types here, first any is model, second any is a sqlalchemy expr.
 EmitFunction = Callable[[Session, Any], Any]
 
+# TODO (dhatch): This function might not be viable long term if we need to do joins, etc.
+def partial_to_filter(expression: Expression, session: Session, model):
+    """Convert constraints in ``partial`` to a filter over ``model`` that should be applied to query."""
+    # Top level operation must be and.
+    query = session.query(model)
+
+    print(expression)
+
+    return translate_expr(expression, session, model)
+
+
 def partial_to_query(expression: Expression, session: Session, model) -> Query:
     """Convert constraints in ``partial`` to a query over ``model``."""
     # Top level operation must be and.

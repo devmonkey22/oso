@@ -5,12 +5,12 @@ from sqlalchemy.orm.query import Query
 from sqlalchemy.orm.session import Session
 from sqlalchemy.sql import expression as sql
 
-from sqlalchemy_oso.partial import partial_to_query
+from sqlalchemy_oso.partial import partial_to_query, partial_to_filter
 
-def null_query(session: Session) -> Query:
+def null_query(session: Session, model) -> Query:
     """Return an intentionally empty query."""
     # TODO (dhatch): Make this not hit the database.
-    return session.query(sql.false()).filter(sql.false())
+    return session.query(model).filter(sql.false())
 
 
 def register_models(oso: Oso, base):
@@ -58,6 +58,49 @@ def authorize_model(oso: Oso, actor, action, session: Session, model) -> Query:
         # otherwise
 
     if combined_query is None:
-        return null_query(session)
+        return null_query(session, model)
 
     return combined_query
+
+# TODO (dhatch): Api might not be viable.
+def authorize_model_filter(oso: Oso, actor, action, session: Session, model):
+    """Return a query containing filters that apply the policy to ``model``.
+
+    Executing this query will return only authorized objects. If the request is
+    not authorized, a query that always contains no result will be returned.
+
+    :param oso: The oso class to use for evaluating the policy.
+    :param actor: The actor to authorize.
+    :param action: The action to authorize.
+
+    :param session: The SQLAlchemy session.
+    :param model: The model to authorize, must be a SQLAlchemy model.
+    """
+    # TODO (dhatch): Check that model is a model.
+    # TODO (dhatch): More robust name mapping?
+
+    partial_resource = Partial("resource", TypeConstraint(model.__name__))
+    results = oso.query_rule("allow", actor, action, partial_resource)
+
+    combined_filter = None
+    has_result = False
+    for result in results:
+        has_result = True
+
+        resource_partial = result["bindings"]["resource"]
+        filter = partial_to_filter(resource_partial, session, model)
+        if combined_filter is None:
+            combined_filter = filter
+        elif filter is not None:
+            combined_filter = combined_filter | filter
+
+        # if query is empty?
+
+        # if query is everything?
+
+        # otherwise
+
+    if not has_result:
+        return sql.false()
+
+    return combined_filter
