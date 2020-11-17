@@ -58,3 +58,12 @@ def authorize_query(query: Query, get_oso, get_user, get_action) -> Query:
             query = query.filter(authorized_filter)
 
     return query
+
+
+def make_authorized_query_cls(get_oso, get_user, get_action) -> Query:
+    class AuthorizedQuery(Query):
+        """Query object that always applies authorization for ORM entities."""
+
+    enable_hooks(get_oso, get_user, get_action, target=AuthorizedQuery)
+
+    return AuthorizedQuery

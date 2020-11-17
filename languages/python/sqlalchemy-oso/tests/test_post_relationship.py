@@ -9,6 +9,7 @@ from oso import Oso
 from sqlalchemy_oso.auth import authorize_model
 
 from .models import *
+from .conftest import print_query
 
 def test_authorize_model_basic(session, oso, fixture_data):
     """Test that a simple policy with checks on non-relationship attributes is correct."""

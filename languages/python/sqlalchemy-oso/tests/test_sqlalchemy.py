@@ -1,9 +1,9 @@
 """Test hooks & SQLAlchemy API integrations."""
 import pytest
 
-from sqlalchemy.orm import aliased
+from sqlalchemy.orm import aliased, sessionmaker
 
-from sqlalchemy_oso.hooks import authorize_query, enable_hooks
+from sqlalchemy_oso.hooks import authorize_query, enable_hooks, make_authorized_query_cls
 
 from .models import *
 from .conftest import print_query
@@ -219,3 +219,32 @@ def test_hooks_alias(session, oso, fixture_data):
         assert query.count() == 1
     finally:
         disable()
+
+def test_make_authorize_query_cls_relationship(engine, oso, fixture_data):
+    oso.load_str('allow("user", "read", post: Post) if post.id = 1;')
+    # Post with creator id = 1
+    oso.load_str('allow("user", "read", post: Post) if post.id = 7;')
+    oso.load_str('allow("user", "read", user: User) if user.id = 0;')
+
+    Session = sessionmaker(
+        query_cls=make_authorized_query_cls(
+            lambda: oso,
+            lambda: "user",
+            lambda: "read"),
+        bind=engine)
+
+    session = Session()
+
+    posts = session.query(Post)
+    assert posts.count() == 2
+
+    users = session.query(User)
+    assert users.count() == 1
+
+    post_1 = posts.get(1)
+    # Authorized created by field.
+    assert post_1.created_by == users.get(0)
+
+    post_7 = posts.get(7)
+    # created_by isn't actually none, but we can't see it
+    assert post_7.created_by is None
