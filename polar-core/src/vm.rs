@@ -1529,14 +1529,14 @@ impl PolarVirtualMachine {
                     Value::Partial(partial) => {
                         let mut partial = partial.clone();
                         if item.value().as_partial().is_ok() || item.value().as_symbol().is_ok() {
-                            let item_partial = partial.in_unbound(item.clone());
+                            let item_partial = partial.in_unbound(item);
                             self.bind(
                                 &item_partial.value().as_partial().unwrap().name().clone(),
                                 item_partial,
                             );
                             self.bind(partial.name(), partial.clone().into_term());
                         } else {
-                            partial.in_contains(item.clone());
+                            partial.in_contains(item);
                             self.bind(&partial.name().clone(), partial.into_term());
                         }
                     }
