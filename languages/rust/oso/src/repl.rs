@@ -120,8 +120,8 @@ pub fn main() -> anyhow::Result<()> {
             }
         };
 
-        if input.starts_with("%def") {
-            if let Err(e) = oso.load_str(&input[4..]) {
+        if let Some(input) = input.strip_prefix("%def") {
+            if let Err(e) = oso.load_str(input) {
                 println!("{}", e);
             }
             continue;
