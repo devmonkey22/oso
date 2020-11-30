@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1606760246149,
+  "lastUpdate": 1606771831138,
   "repoUrl": "https://github.com/devmonkey22/oso",
   "entries": {
     "Rust Benchmark": [
@@ -13695,6 +13695,60 @@ window.BENCHMARK_DATA = {
             "name": "n_plus_one/10000",
             "value": 53117,
             "range": "± 4396",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5084545+devmonkey22@users.noreply.github.com",
+            "name": "Mike Dearman",
+            "username": "devmonkey22"
+          },
+          "committer": {
+            "email": "5084545+devmonkey22@users.noreply.github.com",
+            "name": "Mike Dearman",
+            "username": "devmonkey22"
+          },
+          "distinct": true,
+          "id": "8185fe1314e5d038f554ae64df508a7394d4bdb9",
+          "message": "Update django-oso library:\n- Update `init_oso`:\n  - Register (dynamically set) user model, default as `auth::User`.\n  - Register AnonymousUser as `auth::AnonymousUser` polar class to match User.\n- Update policy file initialization to log policy files loaded via logging not `print`.\n- Remove unused imports from `apps.py`.",
+          "timestamp": "2020-11-30T16:19:58-05:00",
+          "tree_id": "facd436d810b3e5eef690308650ab718e103c278",
+          "url": "https://github.com/devmonkey22/oso/commit/8185fe1314e5d038f554ae64df508a7394d4bdb9"
+        },
+        "date": 1606771829340,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "rust_get_attribute",
+            "value": 52707,
+            "range": "± 3856",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "n_plus_one/100",
+            "value": 56385,
+            "range": "± 10241",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "n_plus_one/500",
+            "value": 55042,
+            "range": "± 6138",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "n_plus_one/1000",
+            "value": 57392,
+            "range": "± 6189",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "n_plus_one/10000",
+            "value": 58509,
+            "range": "± 6579",
             "unit": "ns/iter"
           }
         ]
