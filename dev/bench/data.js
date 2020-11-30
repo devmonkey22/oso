@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1606771831138,
+  "lastUpdate": 1606772641594,
   "repoUrl": "https://github.com/devmonkey22/oso",
   "entries": {
     "Rust Benchmark": [
@@ -13749,6 +13749,60 @@ window.BENCHMARK_DATA = {
             "name": "n_plus_one/10000",
             "value": 58509,
             "range": "± 6579",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5084545+devmonkey22@users.noreply.github.com",
+            "name": "Mike Dearman",
+            "username": "devmonkey22"
+          },
+          "committer": {
+            "email": "5084545+devmonkey22@users.noreply.github.com",
+            "name": "Mike Dearman",
+            "username": "devmonkey22"
+          },
+          "distinct": true,
+          "id": "c8cd970799d7b0eefd6ea113ca1d9d1f90dfc2da",
+          "message": "Merge remote-tracking branch 'upstream/main' into main",
+          "timestamp": "2020-11-30T16:32:49-05:00",
+          "tree_id": "9107e0d3a4bcfb99fbfec2083d3e75603d72b51f",
+          "url": "https://github.com/devmonkey22/oso/commit/c8cd970799d7b0eefd6ea113ca1d9d1f90dfc2da"
+        },
+        "date": 1606772637162,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "rust_get_attribute",
+            "value": 51997,
+            "range": "± 3624",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "n_plus_one/100",
+            "value": 56069,
+            "range": "± 5312",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "n_plus_one/500",
+            "value": 55886,
+            "range": "± 8304",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "n_plus_one/1000",
+            "value": 55866,
+            "range": "± 8750",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "n_plus_one/10000",
+            "value": 58457,
+            "range": "± 6720",
             "unit": "ns/iter"
           }
         ]
