@@ -1,15 +1,11 @@
 from pathlib import Path
-import sys
 
 import pytest
 
-from django.conf import settings
-from django.test import RequestFactory
 from django.core.exceptions import PermissionDenied
 
 from django_oso.oso import Oso, reset_oso
 from django_oso.auth import authorize, authorize_model
-from polar.errors import UnsupportedError
 
 from oso import OsoError
 
@@ -168,8 +164,8 @@ def test_partial(rf, partial_policy):
 
 
 @pytest.mark.django_db
-def test_partial_disjunctive_matches():
-    from test_app.models import Post, User, Admin
+def test_partial_subfield_isa():
+    from test_app.models import Post, User
 
     alice = User(name="alice")
     alice.save()
@@ -182,16 +178,15 @@ def test_partial_disjunctive_matches():
 
     Oso.load_str(
         """
-            allow(_, _, post: test_app::Post) if check_user(post.created_by);
-            check_user(user: test_app::Admin) if user.name = "not alice";
-            check_user(user: test_app::User) if user.name = "alice";
+            allow(_, _, post: test_app::Post) if check(post.created_by);
+            check(user: test_app::User) if user.name = "alice";
+            check(post: test_app::Post) if post.is_private = false;
         """
     )
 
     authorize_filter = authorize_model(None, Post, actor="foo", action="bar")
     assert (
-        str(authorize_filter)
-        == "(OR: (AND: ('pk__in', []), ('created_by__name', 'not alice')), ('created_by__name', 'alice'))"
+        str(authorize_filter) == "(OR: ('created_by__name', 'alice'), ('pk__in', []))"
     )
     authorized_posts = Post.objects.filter(authorize_filter)
     assert authorized_posts.count() == 2
@@ -227,8 +222,9 @@ def test_null_with_partial(rf):
     authorize_filter = authorize_model(request, Post)
     assert str(authorize_filter) == "(AND: ('option', None))"
     authorized_posts = Post.objects.filter(authorize_filter)
-    assert (
-        str(authorized_posts.query)
-        == 'SELECT "test_app_post"."id", "test_app_post"."is_private", "test_app_post"."name", "test_app_post"."timestamp", "test_app_post"."option", "test_app_post"."created_by_id" FROM "test_app_post" WHERE "test_app_post"."option" IS NULL'
+    assert str(authorized_posts.query) == (
+        'SELECT "test_app_post"."id", "test_app_post"."is_private", "test_app_post"."name", '
+        + '"test_app_post"."timestamp", "test_app_post"."option", "test_app_post"."created_by_id" FROM'
+        + ' "test_app_post" WHERE "test_app_post"."option" IS NULL'
     )
     assert authorized_posts.count() == 1

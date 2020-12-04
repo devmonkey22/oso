@@ -1,8 +1,8 @@
-====
-NEXT
-====
+=====
+0.8.3
+=====
 
-**Release date:** XXXX-XX-XX
+**Release date:** 2020-12-08
 
 Breaking changes
 ================
@@ -37,7 +37,8 @@ contribution!
 Other bugs & improvements
 =========================
 
-- bulleted list
-- improvements
-- of smaller
-- potentially with doc links
+- ``matches`` operations on fields of partials are now handled correctly in the
+  SQLAlchemy adapter. Previously these operations would result in an error.
+- The SQLAlchemy list filtering adapter now supports all comparisons. Previously
+  comparisons other than ``==`` or ``=`` would cause an error.
+- Fixed bug where checking if a character is in a string would fail incorrectly.

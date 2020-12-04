@@ -3,10 +3,9 @@
 Tests come from the relationship document & operations laid out there.
 """
 import pytest
-from django.db import models
 from django.core.exceptions import PermissionDenied
 
-from django_oso.models import AuthorizedModel, authorize_model
+from django_oso.models import authorize_model
 from django_oso.oso import Oso, reset_oso
 from test_app2.models import Post, Tag, User
 
@@ -97,10 +96,12 @@ def test_authorize_model_basic(post_fixtures):
     assert posts.count() == 9
 
     authorize_filter = authorize_model(None, Post, actor="moderator", action="read")
-    assert (
-        str(authorize_filter)
-        == "(OR: (AND: ('access_level', 'private'), ('needs_moderation', True)), (AND: ('access_level', 'public'), ('needs_moderation', True)))"
+    expected = (
+        "(OR: ("
+        + "AND: ('access_level', 'private'), ('needs_moderation', True)), "
+        + "(AND: ('access_level', 'public'), ('needs_moderation', True)))"
     )
+    assert str(authorize_filter) == expected
     posts = Post.objects.filter(authorize_filter)
     assert posts.count() == 4
     assert posts.all()[0].contents == "private for moderation"
@@ -167,9 +168,9 @@ def test_authorize_scalar_attribute_condition(post_fixtures):
     posts = Post.objects.filter(authorize_filter)
 
     def allowed(post, user):
-        return (
-            post.access_level == "public" and post.created_by.is_banned == False
-        ) or (post.access_level == "private" and post.created_by == user)
+        return (post.access_level == "public" and not post.created_by.is_banned) or (
+            post.access_level == "private" and post.created_by == user
+        )
 
     assert posts.count() == 7
     assert all(allowed(post, foo) for post in posts)
@@ -467,6 +468,83 @@ def test_partial_in_collection(tag_nested_many_many_fixtures):
     assert tag_nested_many_many_fixtures["random_post"] in posts
     assert tag_nested_many_many_fixtures["not_tagged_post"] not in posts
     assert tag_nested_many_many_fixtures["all_tagged_post"] not in posts
+
+
+@pytest.mark.django_db
+def test_many_many_with_other_condition(tag_nested_many_many_fixtures):
+    """Test that using a many-to-many condition OR any other condition does not
+    result in duplicate results."""
+    Oso.load_str(
+        """
+            allow(_: test_app2::User, "read", post: test_app2::Post) if
+                tag in post.tags and
+                tag.name = "eng";
+            allow(_: test_app2::User, "read", post: test_app2::Post) if
+                post.access_level = "public";
+        """
+    )
+    user = User.objects.get(username="user")
+    posts = Post.objects.authorize(None, actor=user, action="read")
+    # all should be returned with no duplicates
+    assert list(posts) == list(tag_nested_many_many_fixtures.values())
+
+
+@pytest.mark.django_db
+def test_empty_constraints_in(tag_nested_many_many_fixtures):
+    """Test that ``unbound in partial.field`` without any further constraints
+    on unbound translates into a check that COUNT(partial.field) > 0."""
+    Oso.load_str(
+        """
+            allow(_: test_app2::User, "read", post: test_app2::Post) if
+                _tag in post.tags;
+        """
+    )
+    user = User.objects.get(username="user")
+    authorize_filter = authorize_model(None, Post, actor=user, action="read")
+    assert str(authorize_filter).startswith(
+        "(AND: ('pk__in', <django.db.models.expressions.Subquery object at "
+    )
+    posts = Post.objects.filter(authorize_filter)
+    assert (
+        str(posts.query)
+        == 'SELECT "test_app2_post"."id", "test_app2_post"."contents", "test_app2_post"."access_level",'
+        + ' "test_app2_post"."created_by_id", "test_app2_post"."needs_moderation"'
+        + ' FROM "test_app2_post"'
+        + ' WHERE "test_app2_post"."id" IN'
+        + ' (SELECT U0."id"'
+        + ' FROM "test_app2_post" U0 LEFT OUTER JOIN "test_app2_post_tags" U1 ON (U0."id" = U1."post_id")'
+        + ' GROUP BY U0."id", U0."contents", U0."access_level", U0."created_by_id", U0."needs_moderation"'
+        + ' HAVING COUNT(U1."tag_id") > 0)'
+    )
+    assert len(posts) == 4
+    assert tag_nested_many_many_fixtures["not_tagged_post"] not in posts
+
+
+@pytest.mark.django_db
+def test_in_with_constraints_but_no_matching_objects(tag_nested_many_many_fixtures):
+    Oso.load_str(
+        """
+            allow(_: test_app2::User, "read", post: test_app2::Post) if
+                tag in post.tags and
+                tag.name = "bloop";
+        """
+    )
+    user = User.objects.get(username="user")
+    authorize_filter = authorize_model(None, Post, actor=user, action="read")
+    assert str(authorize_filter) == "(AND: ('tags__name', 'bloop'))"
+    posts = Post.objects.filter(authorize_filter)
+    assert (
+        str(posts.query)
+        == 'SELECT "test_app2_post"."id", "test_app2_post"."contents", "test_app2_post"."access_level",'
+        + ' "test_app2_post"."created_by_id", "test_app2_post"."needs_moderation"'
+        + ' FROM "test_app2_post"'
+        + ' INNER JOIN "test_app2_post_tags"'
+        + ' ON ("test_app2_post"."id" = "test_app2_post_tags"."post_id")'
+        + ' INNER JOIN "test_app2_tag"'
+        + ' ON ("test_app2_post_tags"."tag_id" = "test_app2_tag"."id")'
+        + ' WHERE "test_app2_tag"."name" = bloop'
+    )
+    assert len(posts) == 0
 
 
 # todo test_nested_relationship_single_many

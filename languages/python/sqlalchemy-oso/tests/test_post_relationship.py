@@ -5,10 +5,9 @@ https://www.notion.so/osohq/Relationships-621b884edbc6423f93d29e6066e58d16.
 """
 import pytest
 
-from oso import Oso
 from sqlalchemy_oso.auth import authorize_model
 
-from .models import *
+from .models import Post, Tag, User
 from .conftest import print_query
 
 
@@ -94,7 +93,9 @@ def test_authorize_scalar_attribute_condition(session, oso, fixture_data):
 
     # moderator can see posts made by banned users.
     oso.load_str(
-        'allow(actor: User, "read", post: Post) if actor.is_moderator = true and post.created_by.is_banned = true;'
+        """allow(actor: User, "read", post: Post) if
+                actor.is_moderator = true
+                and post.created_by.is_banned = true;"""
     )
 
     foo = session.query(User).filter(User.username == "foo").first()
@@ -103,7 +104,7 @@ def test_authorize_scalar_attribute_condition(session, oso, fixture_data):
 
     def allowed(post, user):
         return (
-            (post.access_level == "public" and post.created_by.is_banned == False)
+            (post.access_level == "public" and not post.created_by.is_banned)
             or post.access_level == "private"
             and post.created_by == user
         )
@@ -179,6 +180,7 @@ def test_in_multiple_attribute_relationship(session, oso, tag_test_fixture):
         allow(user, "read", post: Post) if post.access_level = "private" and post.created_by = user;
         allow(user, "read", post: Post) if
             tag in post.tags and
+            0 < post.id and
             (tag.is_public = true or tag.name = "foo");
     """
     )
@@ -393,6 +395,68 @@ def test_partial_in_collection(session, oso, tag_nested_many_many_test_fixture):
     assert tag_nested_many_many_test_fixture["not_tagged_post"] not in posts
     assert tag_nested_many_many_test_fixture["all_tagged_post"] not in posts
     assert len(posts) == 1
+
+
+def test_empty_constraints_in(session, oso, tag_nested_many_many_test_fixture):
+    oso.load_str("""allow(_, "read", post: Post) if _tag in post.tags;""")
+    user = tag_nested_many_many_test_fixture["user"]
+    posts = authorize_model(oso, user, "read", session, Post)
+    assert str(posts) == (
+        "SELECT posts.id AS posts_id, posts.contents AS posts_contents, posts.access_level AS posts_access_level,"
+        + " posts.created_by_id AS posts_created_by_id, posts.needs_moderation AS posts_needs_moderation"
+        + " \nFROM posts"
+        + " \nWHERE (EXISTS (SELECT 1"
+        + " \nFROM post_tags, tags"
+        + " \nWHERE posts.id = post_tags.post_id AND tags.name = post_tags.tag_id))"
+    )
+    posts = posts.all()
+    assert len(posts) == 4
+    assert tag_nested_many_many_test_fixture["not_tagged_post"] not in posts
+
+
+def test_in_with_constraints_but_no_matching_objects(
+    session, oso, tag_nested_many_many_test_fixture
+):
+    oso.load_str(
+        """
+        allow(_, "read", post: Post) if
+            tag in post.tags and
+            tag.name = "bloop";
+    """
+    )
+    user = tag_nested_many_many_test_fixture["user"]
+    posts = authorize_model(oso, user, "read", session, Post)
+    assert str(posts) == (
+        "SELECT posts.id AS posts_id, posts.contents AS posts_contents, posts.access_level AS posts_access_level,"
+        + " posts.created_by_id AS posts_created_by_id, posts.needs_moderation AS posts_needs_moderation"
+        + " \nFROM posts"
+        + " \nWHERE (EXISTS (SELECT 1"
+        + " \nFROM post_tags, tags"
+        + " \nWHERE posts.id = post_tags.post_id AND tags.name = post_tags.tag_id AND tags.name = ?))"
+    )
+    posts = posts.all()
+    assert len(posts) == 0
+
+
+# TODO combine with test in test_django_oso.
+def test_partial_subfield_isa(session, oso, tag_nested_many_many_test_fixture):
+    oso.load_str(
+        """
+            allow(_, _, post: Post) if check_user(post.created_by);
+            # User is not a tag.
+            check_user(user: Tag) if user.username = "other_user";
+            check_user(user: User) if user.username = "user";
+        """
+    )
+
+    user = tag_nested_many_many_test_fixture["user"]
+    posts = authorize_model(oso, user, "read", session, Post)
+    # Should only get posts created by user.
+    posts = posts.all()
+    for post in posts:
+        assert post.created_by.username == "user"
+
+    assert len(posts) == 4
 
 
 # TODO test_nested_relationship_single_many

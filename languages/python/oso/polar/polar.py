@@ -3,18 +3,17 @@
 from datetime import datetime, timedelta
 import os
 from pathlib import Path
-from pprint import pprint
 import sys
+from typing import Dict
 
 try:
-    import readline
-except:
+    # importing readline on compatible platforms
+    # changes how `input` works for the REPL
+    import readline  # noqa: F401
+except ImportError:
     pass
 
-from _polar_lib import lib
-
 from .exceptions import (
-    PolarApiError,
     PolarRuntimeError,
     InlineQueryFailedError,
     ParserError,
@@ -22,11 +21,10 @@ from .exceptions import (
     PolarFileNotFoundError,
     InvalidQueryTypeError,
 )
-from .ffi import Polar as FfiPolar, Query as FfiQuery
+from .ffi import Polar as FfiPolar
 from .host import Host
-from .query import Query, QueryResult
+from .query import Query
 from .predicate import Predicate
-from .variable import Variable
 
 
 # https://github.com/django/django/blob/3e753d3de33469493b1f0947a2e0152c4000ed40/django/core/management/color.py
@@ -57,7 +55,7 @@ def print_error(error):
     print(error)
 
 
-CLASSES = {}
+CLASSES: Dict[str, type] = {}
 
 
 class Polar:
@@ -193,6 +191,13 @@ class Polar:
     def register_constant(self, value, name):
         """Register `value` as a Polar constant variable called `name`."""
         self.ffi_polar.register_constant(self.host.to_polar(value), name)
+
+    def get_class(self, name):
+        """Return class registered for ``name``.
+
+        :raises UnregisteredClassError: If the class is not registered.
+        """
+        return self.host.get_class(name)
 
 
 def polar_class(_cls=None, *, name=None):

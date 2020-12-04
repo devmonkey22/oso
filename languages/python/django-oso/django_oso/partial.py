@@ -1,11 +1,28 @@
-from django.db.models import Q, Model
+from django.db.models import Q, Model, Count, Subquery
 from django.apps import apps
 
 from polar.expression import Expression
-from polar.variable import Variable
-from polar.exceptions import UnsupportedError, UnexpectedPolarTypeError
+from polar.exceptions import UnsupportedError
+from polar.partial import dot_path
 
-from .oso import polar_model_name, django_model_name
+from .oso import django_model_name
+
+
+FALSE_FILTER = Q(pk__in=[])
+
+COMPARISONS = {
+    "Unify": lambda f, v: Q(**{f: v}),
+    "Eq": lambda f, v: Q(**{f: v}),
+    "Neq": lambda f, v: ~Q(**{f: v}),
+    "Geq": lambda f, v: Q(**{f"{f}__gte": v}),
+    "Gt": lambda f, v: Q(**{f"{f}__gt": v}),
+    "Leq": lambda f, v: Q(**{f"{f}__leq": v}),
+    "Lt": lambda f, v: Q(**{f"{f}__lt": v}),
+}
+
+
+def contained_in(f, v):
+    return Q(**{f"{f}__in": v})
 
 
 def partial_to_query_filter(partial: Expression, model: Model, **kwargs):
@@ -40,17 +57,6 @@ def partial_to_query_filter(partial: Expression, model: Model, **kwargs):
     return q
 
 
-COMPARISONS = {
-    "Unify": lambda q, f, v: Q(**{f: v}),
-    "Eq": lambda q, f, v: Q(**{f: v}),
-    "Neq": lambda q, f, v: ~Q(**{f: v}),
-    "Geq": lambda q, f, v: Q(**{f"{f}__gte": v}),
-    "Gt": lambda q, f, v: Q(**{f"{f}__gt": v}),
-    "Leq": lambda q, f, v: Q(**{f"{f}__leq": v}),
-    "Lt": lambda q, f, v: Q(**{f"{f}__lt": v}),
-}
-
-
 def translate_expr(expr: Expression, model: Model, **kwargs):
     """Translate a Polar expression to a Django Q object."""
     assert isinstance(expr, Expression), "expected a Polar expression"
@@ -69,15 +75,11 @@ def translate_expr(expr: Expression, model: Model, **kwargs):
 
 def isa_expr(expr: Expression, model: Model, **kwargs):
     (left, right) = expr.args
-    for attr in dot_op_path(left):
+    for attr in dot_path(left):
         model = getattr(model, attr).field.related_model
     constraint_type = apps.get_model(django_model_name(right.tag))
-    if not issubclass(model, constraint_type):
-        # Always false.
-        return Q(pk__in=[])
-    else:
-        # Always true.
-        return None
+    assert not right.fields, "Unexpected fields in matches expression"
+    return None if issubclass(model, constraint_type) else FALSE_FILTER
 
 
 def and_expr(expr: Expression, model: Model, **kwargs):
@@ -85,57 +87,54 @@ def and_expr(expr: Expression, model: Model, **kwargs):
     q = Q()
     for arg in expr.args:
         expr = translate_expr(arg, model, **kwargs)
-        if expr:
+        # TODO: Remove once we can perform method selection on partials.
+        # shortcutting filter: if any term is false, the whole
+        # AND expression is false
+        if expr == FALSE_FILTER:
+            return FALSE_FILTER
+        elif expr:
             q = q & expr
     return q
 
 
-def compare_expr(expr: Expression, _model: Model, path=(), **kwargs):
-    q = Q()
+def compare_expr(expr: Expression, model: Model, path=(), **kwargs):
     (left, right) = expr.args
-    left_path = dot_op_path(left)
+    left_path = dot_path(left)
     if left_path:
-        return COMPARISONS[expr.operator](q, "__".join(path + left_path), right)
+        return COMPARISONS[expr.operator]("__".join(path + left_path), right)
     else:
-        if isinstance(right, Model):
+        if isinstance(right, model):
             right = right.pk
         else:
-            raise UnsupportedError(f"Unsupported comparison: {expr}")
-        return COMPARISONS[expr.operator](q, "__".join(path + ("pk",)), right)
+            return FALSE_FILTER
+
+        if expr.operator not in ("Eq", "Unify"):
+            raise UnsupportedError(
+                f"Unsupported comparison: {expr}. Models can only be compared"
+                " with `=` or `==`"
+            )
+
+        return COMPARISONS[expr.operator]("__".join(path + ("pk",)), right)
 
 
 def in_expr(expr: Expression, model: Model, path=(), **kwargs):
     assert expr.operator == "In"
-    q = Q()
     (left, right) = expr.args
-    right_path = dot_op_path(right)
+    right_path = dot_path(right)
     assert right_path, "RHS of in must be a dot lookup"
     right_path = path + right_path
 
     if isinstance(left, Expression):
-        return translate_expr(left, model, path=right_path, **kwargs)
+        if left.operator == "And" and not left.args:
+            # An unconstrained partial is in a list if the list is non-empty.
+            count = Count("__".join(right_path))
+            filter = COMPARISONS["Gt"]("__".join(right_path + ("count",)), 0)
+            subquery = Subquery(
+                model.objects.annotate(count).filter(filter).values("pk")
+            )
+
+            return contained_in("pk", subquery)
+        else:
+            return translate_expr(left, model, path=right_path, **kwargs)
     else:
-        return COMPARISONS["Unify"](q, "__".join(right_path), left)
-
-
-# TODO (dhatch): Move this helper into base.
-def dot_op_path(expr):
-    """Get the path components of a lookup.
-
-    The path is returned as a tuple.
-
-    _this.created_by => ('created_by',)
-    _this.created_by.username => ('created_by', 'username')
-
-    Empty tuple is returned if input is not a dot operation.
-    """
-
-    if not (isinstance(expr, Expression) and expr.operator == "Dot"):
-        return ()
-
-    assert len(expr.args) == 2
-
-    if expr.args[0] == Variable("_this"):
-        return (expr.args[1],)
-
-    return dot_op_path(expr.args[0]) + (expr.args[1],)
+        return COMPARISONS["Unify"]("__".join(right_path), left)
