@@ -1,8 +1,8 @@
-=====
-0.8.3
-=====
+====
+NEXT
+====
 
-**Release date:** 2020-12-08
+**Release date:** XXXX-XX-XX
 
 Breaking changes
 ================
@@ -23,22 +23,19 @@ Link to migration guide
 New features
 ============
 
-``PolarClass`` implemented for ``uuid`` crate
----------------------------------------------
+Feature 1
+---------
 
-``PolarClass`` is now implemented for `version 0.6 of the uuid crate
-<https://docs.rs/uuid/0.6/uuid/>`_ behind the optional ``uuid-06`` feature
-flag. Version 0.6 was chosen for compatibility with `Diesel
-<https://crates.io/crates/diesel>`_.
+- summary
+- of
+- user facing changes
 
-Thanks to `John Halbert <https://github.com/johnhalbert>`_ for the
-contribution!
+Link to relevant documentation section
 
 Other bugs & improvements
 =========================
 
-- ``matches`` operations on fields of partials are now handled correctly in the
-  SQLAlchemy adapter. Previously these operations would result in an error.
-- The SQLAlchemy list filtering adapter now supports all comparisons. Previously
-  comparisons other than ``==`` or ``=`` would cause an error.
-- Fixed bug where checking if a character is in a string would fail incorrectly.
+- bulleted list
+- improvements
+- of smaller
+- potentially with doc links

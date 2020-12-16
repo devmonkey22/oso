@@ -6,6 +6,16 @@ The ``django-oso`` library can enforce policies over Django models. This allows
 policies to control access to collections of objects without needing to
 authorize each object individually.
 
+Installation
+============
+
+The oso Django integration is available on `PyPI`_ and can be installed using
+``pip``::
+
+    $ pip install django-oso
+
+.. _PyPI: https://pypi.org/project/django-oso/
+
 Usage
 =====
 
@@ -155,19 +165,5 @@ or Python objects:
 
 - Application method calls.
 - Arithmetic operators.
-- Negating (with ``not``) a ``matches`` operation whose left-hand side is an
-  authorized model or a call to a rule that specializes on an authorized model.
-  For example, if ``resource`` is an ``AuthorizedModel``:
-
-  .. code-block:: polar
-
-        # Not supported.
-        allow(actor, action, resource) if
-            not resource matches Post;
-
-        # Also not supported.
-        is_post(_: Post);
-        allow(actor, action, resource) if
-            not is_post(resource);
 
 .. _Slack: http://join-slack.osohq.com/

@@ -1,6 +1,6 @@
 """Core oso functionality"""
 
-__version__ = "0.8.2"
+__version__ = "0.9.0"
 
 from polar import Polar
 
@@ -9,8 +9,9 @@ class Oso(Polar):
     """The central object to manage application policy state, e.g.
     the policy data, and verify requests.
 
+    >>> from oso import Oso
     >>> Oso()
-    <oso.Oso object at 0x7fad57305100>
+    <oso.oso.Oso object at 0x...>
 
     """
 

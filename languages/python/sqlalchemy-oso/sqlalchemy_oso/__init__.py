@@ -1,6 +1,6 @@
-__version__ = "0.1.0"
+__version__ = "0.2.1"
 
 from .auth import register_models
-from .hooks import authorized_sessionmaker
+from .session import authorized_sessionmaker, set_get_session
 
-__all__ = ["register_models", "authorized_sessionmaker"]
+__all__ = ["register_models", "authorized_sessionmaker", "set_get_session"]

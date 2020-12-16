@@ -41,8 +41,8 @@ django.setup()
 project = "oso"
 copyright = "2020 Oso Security, Inc"
 author = "oso"
-version = "0.8"
-release = "0.8.2"
+version = "0.9"
+release = "0.9.0"
 
 
 # -- General configuration ---------------------------------------------------
@@ -203,7 +203,7 @@ html_favicon = "favicon.ico"
 
 # --- doctest options ----
 
-doctest_test_doctest_blocks = ""
+doctest_test_doctest_blocks = "default"
 
 lexers["node"] = lexer.NodeShellLexer()
 lexers["polar"] = lexer.PolarLexer()
